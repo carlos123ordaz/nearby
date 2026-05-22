@@ -27,11 +27,19 @@ class FriendsRepository {
   }
 
   Future<void> acceptRequest(String requestId) async {
-    await _client
+    final result = await _client
         .from(SupabaseConstants.friendRequestsTable)
         .update({'status': 'accepted', 'updated_at': DateTime.now().toIso8601String()})
         .eq('id', requestId)
-        .eq('receiver_id', _userId);
+        .eq('receiver_id', _userId)
+        .select('sender_id')
+        .single();
+
+    final senderId = result['sender_id'] as String;
+
+    await _client
+        .from(SupabaseConstants.friendshipsTable)
+        .insert({'user_a': senderId, 'user_b': _userId});
   }
 
   Future<void> rejectRequest(String requestId) async {
