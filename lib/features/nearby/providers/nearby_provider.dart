@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/models/profile_model.dart';
@@ -59,6 +60,7 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
   final BleAdvertiser _advertiser;
 
   StreamSubscription<String>? _bleScanSubscription;
+  StreamSubscription<BluetoothAdapterState>? _adapterSubscription;
   RealtimeChannel? _presenceChannel;
   Timer? _refreshTimer;
   final Set<String> _resolvedIds = {};
@@ -105,6 +107,20 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
       // Periodic rescan
       _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
         if (state.mode == NearbyMode.active) _startBleScanning();
+      });
+
+      // Auto-deactivate if the user turns off Bluetooth while nearby mode is active
+      _adapterSubscription?.cancel();
+      _adapterSubscription = FlutterBluePlus.adapterState.listen((adapterState) {
+        if (adapterState != BluetoothAdapterState.on && state.mode == NearbyMode.active) {
+          deactivate().then((_) {
+            if (mounted) {
+              state = state.copyWith(
+                error: 'Bluetooth desactivado. Modo cerca desactivado.',
+              );
+            }
+          });
+        }
       });
     } catch (e) {
       state = state.copyWith(
@@ -160,6 +176,7 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
   Future<void> deactivate() async {
     _refreshTimer?.cancel();
     _bleScanSubscription?.cancel();
+    _adapterSubscription?.cancel();
     await _scanner.stopScan();
     await _advertiser.stopAdvertising();
     _presenceChannel?.unsubscribe();

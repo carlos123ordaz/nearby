@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -26,7 +27,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
     final nearbyState = ref.read(nearbyNotifierProvider);
 
     if (nearbyState.mode == NearbyMode.off) {
-      // Request permissions before activating
+      // 1. Check BLE permissions
       final permStatus = await PermissionManager.checkBleStatus();
       if (permStatus == BlePermissionStatus.permanentlyDenied) {
         if (mounted) _showPermissionDeniedDialog();
@@ -39,9 +40,41 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
           return;
         }
       }
+
+      // 2. Check that Bluetooth adapter is actually on
+      final adapterState = await FlutterBluePlus.adapterState.first;
+      if (adapterState != BluetoothAdapterState.on) {
+        if (mounted) _showBluetoothOffDialog();
+        return;
+      }
     }
 
     await ref.read(nearbyNotifierProvider.notifier).toggle();
+  }
+
+  void _showBluetoothOffDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Bluetooth desactivado'),
+        content: const Text(
+          'Nearby necesita Bluetooth para detectar personas cercanas. Activa el Bluetooth para continuar.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await FlutterBluePlus.turnOn();
+            },
+            child: const Text('Activar Bluetooth'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showPermissionDeniedDialog() {
