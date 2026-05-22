@@ -69,12 +69,10 @@ CREATE TABLE IF NOT EXISTS friendships (
   user_a     UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   user_b     UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT no_self_friendship CHECK (user_a <> user_b),
-  CONSTRAINT unique_friendship UNIQUE (
-    LEAST(user_a::TEXT, user_b::TEXT)::UUID,
-    GREATEST(user_a::TEXT, user_b::TEXT)::UUID
-  )
+  CONSTRAINT no_self_friendship CHECK (user_a <> user_b)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS friendships_unique_pair ON friendships(LEAST(user_a, user_b), GREATEST(user_a, user_b));
 
 CREATE INDEX IF NOT EXISTS friendships_user_a_idx ON friendships(user_a);
 CREATE INDEX IF NOT EXISTS friendships_user_b_idx ON friendships(user_b);
@@ -88,12 +86,10 @@ CREATE TABLE IF NOT EXISTS conversations (
   user_b     UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT no_self_conversation CHECK (user_a <> user_b),
-  CONSTRAINT unique_conversation UNIQUE (
-    LEAST(user_a::TEXT, user_b::TEXT)::UUID,
-    GREATEST(user_a::TEXT, user_b::TEXT)::UUID
-  )
+  CONSTRAINT no_self_conversation CHECK (user_a <> user_b)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS conversations_unique_pair ON conversations(LEAST(user_a, user_b), GREATEST(user_a, user_b));
 
 CREATE INDEX IF NOT EXISTS conversations_user_a_idx ON conversations(user_a);
 CREATE INDEX IF NOT EXISTS conversations_user_b_idx ON conversations(user_b);
@@ -216,17 +212,65 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION accept_friend_request(UUID) TO authenticated;
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- FUNCTION: Create profile on signup (trigger)
+-- FUNCTION: Auto-create profile on signup (email/password + Google OAuth)
 -- ═══════════════════════════════════════════════════════════════════════════
+-- NOTE: Enable Google provider in Supabase Dashboard →
+--       Authentication → Providers → Google
+--       and add your Client ID + Secret from Google Cloud Console.
 
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_display_name TEXT;
+  v_avatar_url   TEXT;
+  v_base         TEXT;
+  v_username     TEXT;
 BEGIN
-  -- Profile is created explicitly from the app after registration
-  -- This function can be extended to do other setup
+  -- Pull display name from Google metadata (full_name / name) or fallback to email local part
+  v_display_name := left(COALESCE(
+    NULLIF(trim(NEW.raw_user_meta_data->>'full_name'), ''),
+    NULLIF(trim(NEW.raw_user_meta_data->>'name'), ''),
+    split_part(COALESCE(NEW.email, ''), '@', 1),
+    'User'
+  ), 60);
+
+  IF length(v_display_name) < 2 THEN
+    v_display_name := 'User';
+  END IF;
+
+  -- Pull avatar from Google metadata (avatar_url / picture)
+  v_avatar_url := COALESCE(
+    NULLIF(NEW.raw_user_meta_data->>'avatar_url', ''),
+    NULLIF(NEW.raw_user_meta_data->>'picture', '')
+  );
+
+  -- Build a base username from the email local part (sanitized, max 14 chars)
+  v_base := left(
+    regexp_replace(lower(split_part(COALESCE(NEW.email, ''), '@', 1)), '[^a-z0-9_]', '', 'g'),
+    14
+  );
+  IF length(v_base) < 3 THEN
+    v_base := 'user';
+  END IF;
+
+  -- Append random hex suffix until unique (satisfies unique + format constraints)
+  LOOP
+    v_username := v_base || '_' || substr(encode(gen_random_bytes(4), 'hex'), 1, 5);
+    EXIT WHEN NOT EXISTS (SELECT 1 FROM public.profiles WHERE username = v_username);
+  END LOOP;
+
+  INSERT INTO public.profiles (id, username, display_name, avatar_url)
+  VALUES (NEW.id, v_username, v_display_name, v_avatar_url)
+  ON CONFLICT (id) DO NOTHING;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Fire after every new auth.users row (covers email/password AND OAuth)
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- CLEANUP: Expired nearby sessions

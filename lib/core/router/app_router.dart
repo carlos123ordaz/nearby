@@ -13,11 +13,72 @@ import '../../features/profile/presentation/screens/settings_screen.dart';
 import '../../features/nearby/presentation/screens/user_preview_screen.dart';
 import '../../features/chat/presentation/screens/chat_detail_screen.dart';
 import '../../features/main/main_screen.dart';
+import '../../features/auth/providers/auth_provider.dart';
+
+// Pages that unauthenticated users can visit.
+const _guestOnlyRoutes = {
+  '/',
+  '/welcome',
+  '/login',
+  '/register',
+  '/forgot-password',
+};
+
+// Listens to auth + profile state and notifies GoRouter to re-run redirect.
+class RouterNotifier extends ChangeNotifier {
+  final Ref _ref;
+
+  RouterNotifier(this._ref) {
+    _ref.listen<AsyncValue<AuthState>>(authStateProvider, (_, __) => notifyListeners());
+    _ref.listen<AsyncValue<bool>>(hasProfileProvider,    (_, __) => notifyListeners());
+  }
+
+  String? redirect(BuildContext context, GoRouterState state) {
+    final authAsync = _ref.read(authStateProvider);
+    if (authAsync.isLoading) return null;
+
+    final isLoggedIn = authAsync.valueOrNull?.session != null;
+    final loc = state.matchedLocation;
+
+    // Not logged in → only guest pages are allowed.
+    if (!isLoggedIn) {
+      return _guestOnlyRoutes.contains(loc) ? null : '/welcome';
+    }
+
+    // Logged in → check whether a profile row exists.
+    final profileAsync = _ref.read(hasProfileProvider);
+    if (profileAsync.isLoading) return null; // wait for the check
+
+    final hasProfile = profileAsync.valueOrNull ?? false;
+
+    if (!hasProfile) {
+      // New OAuth user with no profile yet → must complete it.
+      return loc == '/complete-profile' ? null : '/complete-profile';
+    }
+
+    // Profile exists → don't let them linger on guest or setup pages.
+    if (_guestOnlyRoutes.contains(loc) || loc == '/complete-profile') return '/main';
+
+    return null;
+  }
+}
+
+final _routerNotifierProvider = ChangeNotifierProvider<RouterNotifier>((ref) {
+  return RouterNotifier(ref);
+});
 
 final routerProvider = Provider<GoRouter>((ref) {
+  // ref.read so the GoRouter instance is created only once.
+  final notifier = ref.read(_routerNotifierProvider);
+
+  // Keep the notifier alive as long as the router lives.
+  ref.onDispose(notifier.dispose);
+
   return GoRouter(
     initialLocation: '/',
     debugLogDiagnostics: false,
+    refreshListenable: notifier,
+    redirect: notifier.redirect,
     routes: [
       GoRoute(
         path: '/',

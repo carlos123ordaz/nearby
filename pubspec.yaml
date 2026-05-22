@@ -51,6 +51,7 @@ dev_dependencies:
   riverpod_generator: ^2.4.0
   flutter_native_splash: ^2.4.1
   flutter_launcher_icons: ^0.13.1
+  image: ^4.1.0
 
 flutter_native_splash:
   color: "#0B0B10"

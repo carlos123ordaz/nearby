@@ -34,5 +34,12 @@ class AuthRepository {
     await _client.auth.resetPasswordForEmail(email);
   }
 
+  Future<void> signInWithGoogle() async {
+    await _client.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: 'com.nearby.app://login-callback',
+    );
+  }
+
   bool get isAuthenticated => currentUser != null;
 }

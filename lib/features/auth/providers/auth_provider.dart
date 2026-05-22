@@ -77,8 +77,34 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
       return false;
     }
   }
+
+  Future<void> signInWithGoogle() async {
+    state = const AsyncValue.loading();
+    try {
+      await _repo.signInWithGoogle();
+      // Navigation is handled by the auth state stream after the OAuth redirect
+      state = const AsyncValue.data(null);
+    } on AuthException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+    } catch (e) {
+      state = AsyncValue.error('Error al iniciar con Google', StackTrace.current);
+    }
+  }
 }
 
 final authNotifierProvider = StateNotifierProvider<AuthNotifier, AsyncValue<void>>((ref) {
   return AuthNotifier(ref.watch(authRepositoryProvider));
+});
+
+// True when the current user has a row in the profiles table.
+// The router uses this to redirect new OAuth users to complete-profile.
+final hasProfileProvider = FutureProvider<bool>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return false;
+  final row = await Supabase.instance.client
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle();
+  return row != null;
 });
