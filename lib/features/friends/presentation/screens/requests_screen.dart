@@ -131,24 +131,33 @@ class _RequestsList extends ConsumerWidget {
       return const ShimmerList(count: 3);
     }
 
-    if (requests.isEmpty) {
-      return EmptyStateWidget(
-        icon: isReceived ? Icons.inbox_rounded : Icons.send_rounded,
-        title: isReceived ? 'Sin solicitudes pendientes' : 'Sin solicitudes enviadas',
-        body: isReceived
-            ? 'Cuando alguien quiera conectar contigo, aparecerá aquí'
-            : 'Las solicitudes que envíes a otros usuarios aparecerán aquí',
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.all(20),
-      itemCount: requests.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (_, i) => _RequestCard(
-        request: requests[i],
-        isReceived: isReceived,
-      ),
+    return RefreshIndicator(
+      onRefresh: () => ref.read(friendsNotifierProvider.notifier).loadAll(),
+      color: AppColors.accent,
+      child: requests.isEmpty
+          ? ListView(
+              children: [
+                SizedBox(
+                  height: 400,
+                  child: EmptyStateWidget(
+                    icon: isReceived ? Icons.inbox_rounded : Icons.send_rounded,
+                    title: isReceived ? 'Sin solicitudes pendientes' : 'Sin solicitudes enviadas',
+                    body: isReceived
+                        ? 'Cuando alguien quiera conectar contigo, aparecerá aquí'
+                        : 'Las solicitudes que envíes a otros usuarios aparecerán aquí',
+                  ),
+                ),
+              ],
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(20),
+              itemCount: requests.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) => _RequestCard(
+                request: requests[i],
+                isReceived: isReceived,
+              ),
+            ),
     );
   }
 }

@@ -24,18 +24,9 @@ class ChatsScreen extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Mensajes',
-                    style: AppTextStyles.headlineLarge.copyWith(color: context.textColor),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.refresh_rounded, color: context.textFaintColor),
-                    onPressed: () => ref.read(chatNotifierProvider.notifier).loadConversations(),
-                  ),
-                ],
+              child: Text(
+                'Mensajes',
+                style: AppTextStyles.headlineLarge.copyWith(color: context.textColor),
               ),
             ),
             Expanded(
@@ -44,26 +35,33 @@ class ChatsScreen extends ConsumerWidget {
                 error: (e, _) => Center(
                   child: Text('Error: $e', style: AppTextStyles.bodyMedium),
                 ),
-                data: (conversations) {
-                  if (conversations.isEmpty) {
-                    return const EmptyStateWidget(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      title: 'Sin conversaciones',
-                      body: 'Acepta solicitudes de amistad para poder chatear con otras personas',
-                    );
-                  }
-
-                  return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: conversations.length,
-                    separatorBuilder: (_, __) => Divider(
-                      color: context.borderColor,
-                      height: 1,
-                      indent: 72,
-                    ),
-                    itemBuilder: (_, i) => _ConversationTile(conv: conversations[i]),
-                  );
-                },
+                data: (conversations) => RefreshIndicator(
+                  onRefresh: () => ref.read(chatNotifierProvider.notifier).loadConversations(),
+                  color: AppColors.accent,
+                  child: conversations.isEmpty
+                      ? ListView(
+                          children: const [
+                            SizedBox(
+                              height: 400,
+                              child: EmptyStateWidget(
+                                icon: Icons.chat_bubble_outline_rounded,
+                                title: 'Sin conversaciones',
+                                body: 'Acepta solicitudes de amistad para poder chatear con otras personas',
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          itemCount: conversations.length,
+                          separatorBuilder: (_, __) => Divider(
+                            color: context.borderColor,
+                            height: 1,
+                            indent: 72,
+                          ),
+                          itemBuilder: (_, i) => _ConversationTile(conv: conversations[i]),
+                        ),
+                ),
               ),
             ),
           ],

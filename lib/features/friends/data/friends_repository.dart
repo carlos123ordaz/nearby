@@ -60,45 +60,61 @@ class FriendsRepository {
   }
 
   Future<List<FriendRequestModel>> getReceivedRequests() async {
-    final data = await _client
+    final rows = await _client
         .from(SupabaseConstants.friendRequestsTable)
-        .select('''
-          *,
-          sender_profile:profiles!friend_requests_sender_id_fkey(
-            id, display_name, username, avatar_url, interests
-          )
-        ''')
+        .select('id, sender_id, receiver_id, status, created_at, updated_at')
         .eq('receiver_id', _userId)
         .eq('status', 'pending')
         .order('created_at', ascending: false);
 
-    return (data as List)
-        .map((d) => FriendRequestModel.fromJson({
-              ...d,
-              'sender_profile': d['sender_profile'],
-            }))
-        .toList();
+    if ((rows as List).isEmpty) return [];
+
+    final senderIds = rows.map<String>((r) => r['sender_id'] as String).toList();
+    final profileRows = await _client
+        .from(SupabaseConstants.profilesTable)
+        .select('id, display_name, username, avatar_url, interests')
+        .inFilter('id', senderIds);
+
+    final profileMap = <String, Map<String, dynamic>>{
+      for (final p in (profileRows as List))
+        p['id'] as String: p as Map<String, dynamic>,
+    };
+
+    return rows.map<FriendRequestModel>((r) {
+      return FriendRequestModel.fromJson({
+        ...r,
+        'sender_profile': profileMap[r['sender_id']],
+      });
+    }).toList();
   }
 
   Future<List<FriendRequestModel>> getSentRequests() async {
-    final data = await _client
+    final rows = await _client
         .from(SupabaseConstants.friendRequestsTable)
-        .select('''
-          *,
-          receiver_profile:profiles!friend_requests_receiver_id_fkey(
-            id, display_name, username, avatar_url, interests
-          )
-        ''')
+        .select('id, sender_id, receiver_id, status, created_at, updated_at')
         .eq('sender_id', _userId)
         .eq('status', 'pending')
         .order('created_at', ascending: false);
 
-    return (data as List)
-        .map((d) => FriendRequestModel.fromJson({
-              ...d,
-              'receiver_profile': d['receiver_profile'],
-            }))
-        .toList();
+    if ((rows as List).isEmpty) return [];
+
+    final receiverIds = rows.map<String>((r) => r['receiver_id'] as String).toList();
+    final profileRows = await _client
+        .from(SupabaseConstants.profilesTable)
+        .select('id, display_name, username, avatar_url, interests')
+        .inFilter('id', receiverIds);
+
+    final profileMap = <String, Map<String, dynamic>>{
+      for (final p in (profileRows as List))
+        p['id'] as String: p as Map<String, dynamic>,
+    };
+
+    return rows.map<FriendRequestModel>((r) {
+      return FriendRequestModel.fromJson({
+        ...r,
+        'receiver_profile': profileMap[r['receiver_id']],
+      });
+    }).toList();
   }
 
   Future<FriendRequestStatus?> getRequestStatus(String otherUserId) async {
@@ -122,42 +138,74 @@ class FriendsRepository {
   RealtimeChannel subscribeToRequests({
     required void Function() onNewRequest,
   }) {
-    return _client
-        .channel(SupabaseConstants.requestsChannel)
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: SupabaseConstants.friendRequestsTable,
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'receiver_id',
-            value: _userId,
-          ),
-          callback: (_) => onNewRequest(),
-        )
-        .subscribe();
+    final channel = _client.channel(SupabaseConstants.requestsChannel);
+
+    // New request received
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: SupabaseConstants.friendRequestsTable,
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'receiver_id',
+        value: _userId,
+      ),
+      callback: (_) => onNewRequest(),
+    );
+
+    // Sent request accepted/rejected by the other person
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.update,
+      schema: 'public',
+      table: SupabaseConstants.friendRequestsTable,
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'sender_id',
+        value: _userId,
+      ),
+      callback: (_) => onNewRequest(),
+    );
+
+    return channel.subscribe();
   }
 
   // ─── Friendships ───────────────────────────────────────────────────────────
 
   Future<List<FriendshipModel>> getFriends() async {
-    final data = await _client
+    final rows = await _client
         .from(SupabaseConstants.friendshipsTable)
-        .select('''
-          *,
-          user_a_profile:profiles!friendships_user_a_fkey(
-            id, display_name, username, avatar_url, bio, interests, status
-          ),
-          user_b_profile:profiles!friendships_user_b_fkey(
-            id, display_name, username, avatar_url, bio, interests, status
-          )
-        ''')
+        .select('id, user_a, user_b, created_at')
         .or('user_a.eq.$_userId,user_b.eq.$_userId')
         .order('created_at', ascending: false);
 
-    return (data as List)
-        .map((d) => FriendshipModel.fromJson(d, _userId))
-        .toList();
+    if ((rows as List).isEmpty) return [];
+
+    final friendIds = rows.map<String>((r) =>
+        r['user_a'] == _userId ? r['user_b'] as String : r['user_a'] as String).toList();
+
+    final profileRows = await _client
+        .from(SupabaseConstants.profilesTable)
+        .select('id, display_name, username, avatar_url, bio, interests, status')
+        .inFilter('id', friendIds);
+
+    final profileMap = <String, Map<String, dynamic>>{
+      for (final p in (profileRows as List))
+        p['id'] as String: p as Map<String, dynamic>,
+    };
+
+    return rows.map<FriendshipModel>((r) {
+      final isUserA = r['user_a'] == _userId;
+      final friendId = isUserA ? r['user_b'] as String : r['user_a'] as String;
+      final profileData = profileMap[friendId];
+      return FriendshipModel.fromJson({
+        'id': r['id'],
+        'user_a': r['user_a'],
+        'user_b': r['user_b'],
+        'created_at': r['created_at'],
+        'user_a_profile': isUserA ? null : profileData,
+        'user_b_profile': isUserA ? profileData : null,
+      }, _userId);
+    }).toList();
   }
 
   Future<void> removeFriend(String friendId) async {
@@ -165,6 +213,12 @@ class FriendsRepository {
         .from(SupabaseConstants.friendshipsTable)
         .delete()
         .or('and(user_a.eq.$_userId,user_b.eq.$friendId),and(user_a.eq.$friendId,user_b.eq.$_userId)');
+
+    // Reset the old accepted request so the user can send a new one later.
+    await _client
+        .from(SupabaseConstants.friendRequestsTable)
+        .delete()
+        .or('and(sender_id.eq.$_userId,receiver_id.eq.$friendId),and(sender_id.eq.$friendId,receiver_id.eq.$_userId)');
   }
 
   Future<bool> areFriends(String otherUserId) async {

@@ -52,7 +52,9 @@ class FriendRequestModel {
       receiverId: json['receiver_id'] as String,
       status: parseStatus(json['status'] as String? ?? 'pending'),
       createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : DateTime.parse(json['created_at'] as String),
       senderDisplayName: senderProfile?['display_name'] as String?,
       senderUsername: senderProfile?['username'] as String?,
       senderAvatarUrl: senderProfile?['avatar_url'] as String?,

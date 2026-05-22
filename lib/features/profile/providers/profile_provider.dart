@@ -52,6 +52,8 @@ class ProfileNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
       interests: interests,
     );
     state = AsyncValue.data(profile);
+    // Invalidate so the router re-checks and allows navigation to /main.
+    _ref.invalidate(hasProfileProvider);
   }
 
   // Only uploads the file to storage — does NOT update the profile row.

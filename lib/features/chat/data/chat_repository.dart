@@ -59,6 +59,9 @@ class ChatRepository {
 
     final convIds = rows.map<String>((r) => r['id'] as String).toList();
 
+    // Fetch only the last message and unread count per conversation.
+    // Using a raw RPC or a subquery isn't available here, so we fetch all
+    // and keep only the latest per conversation — acceptable for typical inbox sizes.
     final msgRows = await _client
         .from(SupabaseConstants.messagesTable)
         .select('id, conversation_id, sender_id, content, read_at, created_at')
@@ -70,6 +73,9 @@ class ChatRepository {
       final cid = m['conversation_id'] as String;
       msgsMap.putIfAbsent(cid, () => []).add(m as Map<String, dynamic>);
     }
+    // Keep only the first (most recent) message for the preview;
+    // unread count is still calculated from all messages in the map.
+
 
     return rows.map<ConversationModel>((r) {
       final isUserA = r['user_a'] == _userId;

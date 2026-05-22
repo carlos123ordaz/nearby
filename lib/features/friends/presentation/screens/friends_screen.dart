@@ -84,20 +84,31 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             Expanded(
               child: state.isLoading && state.friends.isEmpty
                   ? const ShimmerList()
-                  : filtered.isEmpty
-                      ? EmptyStateWidget(
-                          icon: Icons.people_outline_rounded,
-                          title: _query.isNotEmpty ? 'Sin resultados' : 'Sin amigos aún',
-                          body: _query.isNotEmpty
-                              ? 'No encontramos a nadie con ese nombre'
-                              : 'Activa el modo cerca para descubrir personas y enviar solicitudes',
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
-                          itemBuilder: (_, i) => _FriendCard(friendship: filtered[i]),
-                        ),
+                  : RefreshIndicator(
+                      onRefresh: () => ref.read(friendsNotifierProvider.notifier).loadAll(),
+                      color: AppColors.accent,
+                      child: filtered.isEmpty
+                          ? ListView(
+                              children: [
+                                SizedBox(
+                                  height: MediaQuery.of(context).size.height * 0.5,
+                                  child: EmptyStateWidget(
+                                    icon: Icons.people_outline_rounded,
+                                    title: _query.isNotEmpty ? 'Sin resultados' : 'Sin amigos aún',
+                                    body: _query.isNotEmpty
+                                        ? 'No encontramos a nadie con ese nombre'
+                                        : 'Activa el modo cerca para descubrir personas y enviar solicitudes',
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (_, i) => _FriendCard(friendship: filtered[i]),
+                            ),
+                    ),
             ),
           ],
         ),
