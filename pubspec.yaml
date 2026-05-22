@@ -1,0 +1,73 @@
+name: nearby_app
+description: Discover people nearby via BLE and connect with them.
+version: 1.0.0+1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Backend
+  supabase_flutter: ^2.5.6
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Navigation
+  go_router: ^13.2.4
+
+  # BLE
+  flutter_blue_plus: ^1.32.12
+
+  # Permissions
+  permission_handler: ^11.3.1
+
+  # Storage / Security
+  flutter_secure_storage: ^9.2.2
+
+  # Image
+  image_picker: ^1.1.2
+  cached_network_image: ^3.4.1
+
+  # Utils
+  timeago: ^3.7.0
+  uuid: ^4.5.1
+  intl: ^0.19.0
+
+  # UI
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.9
+  riverpod_generator: ^2.4.0
+  flutter_native_splash: ^2.4.1
+  flutter_launcher_icons: ^0.13.1
+
+flutter_native_splash:
+  color: "#0B0B10"
+  image: assets/images/splash_logo.png
+  android: true
+  ios: false
+  web: false
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/app_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#0B0B10"
+  adaptive_icon_foreground: "assets/images/app_icon_fg.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
