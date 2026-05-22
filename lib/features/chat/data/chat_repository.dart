@@ -35,29 +35,59 @@ class ChatRepository {
   }
 
   Future<List<ConversationModel>> getConversations() async {
-    final data = await _client
+    final rows = await _client
         .from(SupabaseConstants.conversationsTable)
-        .select('''
-          *,
-          user_a_profile:profiles!conversations_user_a_fkey(
-            id, display_name, username, avatar_url, status
-          ),
-          user_b_profile:profiles!conversations_user_b_fkey(
-            id, display_name, username, avatar_url, status
-          ),
-          messages(id, sender_id, content, read_at, created_at)
-        ''')
+        .select('id, user_a, user_b, created_at, updated_at')
         .or('user_a.eq.$_userId,user_b.eq.$_userId')
         .order('updated_at', ascending: false);
 
-    return (data as List)
-        .map((d) {
-          // Sort messages by created_at desc and take first
-          final msgs = d['messages'] as List<dynamic>? ?? [];
-          msgs.sort((a, b) => DateTime.parse(b['created_at']).compareTo(DateTime.parse(a['created_at'])));
-          return ConversationModel.fromJson({...d, 'messages': msgs}, _userId);
-        })
-        .toList();
+    if ((rows as List).isEmpty) return [];
+
+    final otherIds = rows.map<String>((r) {
+      return r['user_a'] == _userId ? r['user_b'] as String : r['user_a'] as String;
+    }).toList();
+
+    final profileRows = await _client
+        .from(SupabaseConstants.profilesTable)
+        .select('id, display_name, username, avatar_url, status')
+        .inFilter('id', otherIds);
+
+    final profileMap = <String, Map<String, dynamic>>{
+      for (final p in (profileRows as List))
+        p['id'] as String: p as Map<String, dynamic>,
+    };
+
+    final convIds = rows.map<String>((r) => r['id'] as String).toList();
+
+    final msgRows = await _client
+        .from(SupabaseConstants.messagesTable)
+        .select('id, conversation_id, sender_id, content, read_at, created_at')
+        .inFilter('conversation_id', convIds)
+        .order('created_at', ascending: false);
+
+    final msgsMap = <String, List<Map<String, dynamic>>>{};
+    for (final m in (msgRows as List)) {
+      final cid = m['conversation_id'] as String;
+      msgsMap.putIfAbsent(cid, () => []).add(m as Map<String, dynamic>);
+    }
+
+    return rows.map<ConversationModel>((r) {
+      final isUserA = r['user_a'] == _userId;
+      final otherId = isUserA ? r['user_b'] as String : r['user_a'] as String;
+      final profileData = profileMap[otherId];
+      final msgs = msgsMap[r['id']] ?? [];
+
+      return ConversationModel.fromJson({
+        'id': r['id'],
+        'user_a': r['user_a'],
+        'user_b': r['user_b'],
+        'created_at': r['created_at'],
+        'updated_at': r['updated_at'],
+        'user_a_profile': isUserA ? null : profileData,
+        'user_b_profile': isUserA ? profileData : null,
+        'messages': msgs,
+      }, _userId);
+    }).toList();
   }
 
   Future<List<MessageModel>> getMessages(String conversationId) async {

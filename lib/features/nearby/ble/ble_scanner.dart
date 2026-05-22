@@ -21,6 +21,12 @@ class BleScanner {
 
     try {
       final adapterState = await FlutterBluePlus.adapterState.first;
+      if (adapterState == BluetoothAdapterState.unauthorized) {
+        _status = BleScanStatus.error;
+        ctrl.addError('Permiso de Bluetooth denegado');
+        await ctrl.close();
+        return;
+      }
       if (adapterState != BluetoothAdapterState.on) {
         _status = BleScanStatus.error;
         ctrl.addError('Bluetooth desactivado');

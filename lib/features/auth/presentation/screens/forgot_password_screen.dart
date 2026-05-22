@@ -67,9 +67,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Widget _buildForm(bool isLoading) {
     return Form(
       key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           Text(
             'Recuperar contraseña',
             style: AppTextStyles.displayMedium.copyWith(color: context.textColor),
@@ -98,6 +99,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             isLoading: isLoading,
           ),
         ],
+      ),
       ),
     );
   }

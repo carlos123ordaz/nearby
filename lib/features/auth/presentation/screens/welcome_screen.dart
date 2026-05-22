@@ -13,12 +13,12 @@ class WelcomeScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.darkBg,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Spacer(flex: 2),
+              const SizedBox(height: 40),
               // Logo
               Center(
                 child: Container(
@@ -66,7 +66,7 @@ class WelcomeScreen extends ConsumerWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
-              const Spacer(flex: 3),
+              const SizedBox(height: 48),
               // Feature pills
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,

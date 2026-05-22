@@ -173,12 +173,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               color: context.surfaceColor,
               border: Border(top: BorderSide(color: context.borderColor, width: 1)),
             ),
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 8,
-              bottom: 8 + MediaQuery.of(context).viewInsets.bottom,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: SafeArea(
               top: false,
               child: Row(
