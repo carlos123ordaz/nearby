@@ -2,8 +2,8 @@ class SupabaseConstants {
   SupabaseConstants._();
 
   // Replace with your actual Supabase project credentials
-  static const String supabaseUrl = '';
-  static const String supabaseAnonKey = '';
+  static const String supabaseUrl = 'https://btfpcwznehtxasngaeyv.supabase.co';
+  static const String supabaseAnonKey = 'sb_publishable_02qu9pUHr2czZtAI9YBJLQ_DXPHCS1Q';
 
   // Tables
   static const String profilesTable = 'profiles';

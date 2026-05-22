@@ -65,11 +65,13 @@ class MainActivity : FlutterActivity() {
                 .build()
 
             val uuid = ParcelUuid(UUID.fromString(serviceUuid))
-            val idBytes = ephemeralId.take(20).toByteArray(Charsets.UTF_8)
+            // ephemeralId is now a 12-char hex string (12 bytes).
+            // addServiceData already embeds the UUID, so addServiceUuid is redundant
+            // and would push the packet over the 31-byte BLE advertising limit.
+            val idBytes = ephemeralId.toByteArray(Charsets.UTF_8)
 
             val data = AdvertiseData.Builder()
                 .setIncludeDeviceName(false)
-                .addServiceUuid(uuid)
                 .addServiceData(uuid, idBytes)
                 .build()
 

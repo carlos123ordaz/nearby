@@ -27,6 +27,7 @@ class ProfileRepository {
   Future<ProfileModel> createProfile({
     required String username,
     required String displayName,
+    String? avatarUrl,
     String? bio,
     int? age,
     List<String> interests = const [],
@@ -36,6 +37,7 @@ class ProfileRepository {
       'id': _userId,
       'username': username,
       'display_name': displayName,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
       'bio': bio,
       'age': age,
       'interests': interests,
@@ -46,7 +48,7 @@ class ProfileRepository {
     };
     final result = await _client
         .from(SupabaseConstants.profilesTable)
-        .insert(data)
+        .upsert(data)
         .select()
         .single();
     return ProfileModel.fromJson(result);

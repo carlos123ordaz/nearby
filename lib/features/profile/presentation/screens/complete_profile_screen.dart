@@ -91,26 +91,30 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
     setState(() => _isLoading = true);
     final notifier = ref.read(profileNotifierProvider.notifier);
 
-    String? avatarUrl;
-    if (_avatarFile != null) {
-      avatarUrl = await notifier.uploadAvatar(_avatarFile!);
-    }
+    try {
+      // Upload avatar to storage first (no profile row yet, so don't call uploadAvatar
+      // which internally calls updateProfile and would fail with 0 rows matched).
+      String? avatarUrl;
+      if (_avatarFile != null) {
+        avatarUrl = await notifier.uploadAvatarFile(_avatarFile!);
+      }
 
-    final success = await notifier.createProfile(
-      username: _usernameCtrl.text.trim().toLowerCase(),
-      displayName: _displayNameCtrl.text.trim(),
-      bio: _bioCtrl.text.trim().isEmpty ? null : _bioCtrl.text.trim(),
-      age: int.tryParse(_ageCtrl.text),
-      interests: _selectedInterests.toList(),
-    );
+      await notifier.createProfile(
+        username: _usernameCtrl.text.trim().toLowerCase(),
+        displayName: _displayNameCtrl.text.trim(),
+        avatarUrl: avatarUrl,
+        bio: _bioCtrl.text.trim().isEmpty ? null : _bioCtrl.text.trim(),
+        age: int.tryParse(_ageCtrl.text),
+        interests: _selectedInterests.toList(),
+      );
 
-    setState(() => _isLoading = false);
-
-    if (!mounted) return;
-    if (success) {
+      if (!mounted) return;
       context.go('/main');
-    } else {
-      context.showErrorSnack('Error al crear el perfil');
+    } catch (e) {
+      if (!mounted) return;
+      context.showErrorSnack(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

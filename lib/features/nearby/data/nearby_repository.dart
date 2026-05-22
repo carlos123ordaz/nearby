@@ -13,7 +13,10 @@ class NearbyRepository {
   String get _userId => _client.auth.currentUser!.id;
 
   Future<NearbySessionModel> createSession() async {
-    final ephemeralId = _uuid.v4();
+    // Use a 12-char hex ID — short enough to fit in BLE service data (12 bytes)
+    // while still unique enough for a session. Full UUID would exceed the 31-byte
+    // BLE advertising limit when combined with a 128-bit service UUID.
+    final ephemeralId = _uuid.v4().replaceAll('-', '').substring(0, 12);
     final expiresAt = DateTime.now().add(const Duration(hours: 2));
 
     // Remove old sessions for this user first
@@ -40,6 +43,17 @@ class NearbyRepository {
         .from(SupabaseConstants.nearbySessionsTable)
         .delete()
         .eq('user_id', _userId);
+  }
+
+  Future<void> setDiscoverable(bool value) async {
+    await _client
+        .from(SupabaseConstants.profilesTable)
+        .update({
+          'is_discoverable': value,
+          'status': value ? 'active' : 'inactive',
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', _userId);
   }
 
   Future<ProfileModel?> resolveEphemeralId(String ephemeralBleId) async {

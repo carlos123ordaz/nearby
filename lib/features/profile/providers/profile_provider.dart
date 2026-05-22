@@ -35,25 +35,32 @@ class ProfileNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
 
   Future<void> refresh() => _load();
 
-  Future<bool> createProfile({
+  Future<void> createProfile({
     required String username,
     required String displayName,
+    String? avatarUrl,
     String? bio,
     int? age,
     List<String> interests = const [],
   }) async {
+    final profile = await _repo.createProfile(
+      username: username,
+      displayName: displayName,
+      avatarUrl: avatarUrl,
+      bio: bio,
+      age: age,
+      interests: interests,
+    );
+    state = AsyncValue.data(profile);
+  }
+
+  // Only uploads the file to storage — does NOT update the profile row.
+  // Use this before createProfile so the URL can be included in the insert.
+  Future<String?> uploadAvatarFile(File imageFile) async {
     try {
-      final profile = await _repo.createProfile(
-        username: username,
-        displayName: displayName,
-        bio: bio,
-        age: age,
-        interests: interests,
-      );
-      state = AsyncValue.data(profile);
-      return true;
-    } catch (e) {
-      return false;
+      return await _repo.uploadAvatar(imageFile);
+    } catch (_) {
+      return null;
     }
   }
 

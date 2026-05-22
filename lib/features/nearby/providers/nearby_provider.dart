@@ -74,8 +74,9 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     state = state.copyWith(mode: NearbyMode.active, isScanning: true, clearError: true);
 
     try {
-      // Create a Supabase session with ephemeral BLE ID
+      // Create a Supabase session with ephemeral BLE ID and mark as discoverable
       final session = await _repo.createSession();
+      await _repo.setDiscoverable(true);
       state = state.copyWith(session: session);
 
       // Try BLE advertising
@@ -162,10 +163,11 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     await _scanner.stopScan();
     await _advertiser.stopAdvertising();
     _presenceChannel?.unsubscribe();
+    await _repo.setDiscoverable(false);
     await _repo.deleteSession();
     _resolvedIds.clear();
 
-    state = NearbyState(); // Reset to off
+    state = NearbyState();
   }
 
   Future<void> toggle() async {
